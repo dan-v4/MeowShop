@@ -8,7 +8,7 @@ from forex_python.converter import CurrencyCodes
 from datetime import datetime
 
 c = CurrencyCodes()
-cluster = MongoClient(os.environ['TOKEN'])
+cluster = MongoClient(os.environ['CLUSTER'])
 
 intents = discord.Intents.default()
 intents.guilds = True

@@ -16,6 +16,12 @@ intents.members = True
 bot = commands.Bot(command_prefix='$', intents=intents)
 bot.remove_command('help')
 
+db = cluster["MeowShop"]
+serv = db["Server"]
+carts = db["Carts"]
+prods = db["Products"]
+orders = db["Orders"]
+
 
 def listToString(s):
     str1 = ""
@@ -41,8 +47,6 @@ async def on_reaction_add(self, payload):
 @commands.is_owner()
 async def setup(ctx, currCode: str, shippingCost: int):
     embedVar = discord.Embed(title="Setup", description="Shop setup", color=0xffcccc)
-    db = cluster["MeowShop"]
-    serv = db["Server"]
     item = serv.find_one({"_id": ctx.guild.id})
     currency = c.get_symbol(currCode)
     manager = [ctx.guild.owner]
@@ -71,8 +75,6 @@ async def setup(ctx, currCode: str, shippingCost: int):
 @bot.command()
 @commands.is_owner()
 async def addmgr(ctx, role):
-    db = cluster["MeowShop"]
-    serv = db["Server"]
     servInf = serv.find_one({"_id": ctx.guild.id})
     embedVar = discord.Embed(title="Add manager", description="Add shop manager", color=0xffcccc)
     guildData = bot.get_guild(servInf["_id"])
@@ -107,10 +109,6 @@ async def addmgr(ctx, role):
 @bot.command()
 @commands.is_owner()
 async def confirm(ctx, orderCode: str):
-    db = cluster["MeowShop"]
-    serv = db["Server"]
-    orders = db["Orders"]
-    products = db["Products"]
     order = orders.find_one({"_id": orderCode})
 
     embedVar = discord.Embed(title="Order confirmation", description="Order Code: " + orderCode, color=0xffcccc)
@@ -125,7 +123,7 @@ async def confirm(ctx, orderCode: str):
         for key in items:
             prod = products.find_one({"_id": items[key][3]})
             value = "Price: `" + servInf["currency"] + " " + str(items[key][0]) + "` Quantity: `" \
-                    + str(items[key][1]) + "` Code: `" + items[key][3] + "`\nDescription:\n" + prod["desc"]
+                    + str(items[key][1]) + "` Code: `" + items[key][2] + "`\nDescription:\n" + items[key][3]
             embedVar.add_field(name=key, value=value, inline=False)
         embedVar.add_field(name="Sub-Total", value="`" + servInf["currency"] + " " + str(order["subtotal"]) + "`",
                            inline=False)
@@ -176,10 +174,13 @@ async def confirm(ctx, orderCode: str):
 
 @bot.command()
 @commands.is_owner()
+async def refund(ctx, orderCode: str):
+    pass
+    
+    
+@bot.command()
+@commands.is_owner()
 async def addp(ctx, name: str, price: float, count: int, *desc):
-    db = cluster["MeowShop"]
-    prods = db["Products"]
-    serv = db["Server"]
     servInf = serv.find_one({"_id": ctx.guild.id})
     code = uuid.uuid4().hex[:8]
     desc = listToString(desc)
@@ -202,9 +203,6 @@ async def addp(ctx, name: str, price: float, count: int, *desc):
 @bot.command()
 @commands.is_owner()
 async def delp(ctx, code: str):
-    db = cluster["MeowShop"]
-    prods = db["Products"]
-    serv = db["Server"]
     servInf = serv.find_one({"_id": ctx.guild.id})
     deleted = prods.find_one_and_delete({"_id": code, "serverID": ctx.guild.id})
     name = "Successfully deleted: `" + deleted["name"] + "`"
@@ -219,8 +217,6 @@ async def delp(ctx, code: str):
 @bot.command()
 @commands.is_owner()
 async def setcurrency(ctx, currcode: str):
-    db = cluster["MeowShop"]
-    serv = db["Server"]
     item = serv.find_one({"_id": ctx.guild.id})
     currency = c.get_symbol(currcode)
     embedVar = discord.Embed(title="Set Currency", description="", color=0xffcccc)
@@ -239,8 +235,6 @@ async def setcurrency(ctx, currcode: str):
 @bot.command()
 @commands.is_owner()
 async def setshipping(ctx, cost: float):
-    db = cluster["MeowShop"]
-    serv = db["Server"]
     item = serv.find_one({"_id": ctx.guild.id})
     embedVar = discord.Embed(title="Set Shipping Cost", description="", color=0xffcccc)
     if item is None:
@@ -255,8 +249,6 @@ async def setshipping(ctx, cost: float):
 @bot.command()
 @commands.is_owner()
 async def addpayment(ctx, paymentType: str, *instruction):
-    db = cluster["MeowShop"]
-    serv = db["Server"]
     item = serv.find_one({"_id": ctx.guild.id})
     instruction = listToString(instruction)
     embedVar = discord.Embed(title="Add Payment", description="Add a payment option.", color=0xffcccc)
@@ -276,8 +268,6 @@ async def addpayment(ctx, paymentType: str, *instruction):
 @bot.command()
 @commands.is_owner()
 async def delpayment(ctx, type: str):
-    db = cluster["MeowShop"]
-    serv = db["Server"]
     item = serv.find_one({"_id": ctx.guild.id})
     embedVar = discord.Embed(title="Set Payment", description="Add a payment option.", color=0xffcccc)
     if item is None:
@@ -299,7 +289,6 @@ async def delpayment(ctx, type: str):
     await ctx.send(embed=embedVar)
 
 
-#need to update this command
 @bot.command()
 async def help(ctx):
     embedVar = discord.Embed(title="Help", description="Command List. Prefix: `$`", color=0xffcccc)
@@ -320,8 +309,6 @@ async def help(ctx):
 @bot.command()
 async def info(ctx, searchCode: str = None):
     embedVar = discord.Embed(title="Shop Info", description=" ", color=0xffcccc)
-    db = cluster["MeowShop"]
-    serv = db["Server"]
     if searchCode is None:
         item = serv.find_one({"_id": ctx.guild.id})
         embedVar.add_field(name="Currency", value="`" + item["currency"] + "`",
@@ -355,9 +342,6 @@ async def info(ctx, searchCode: str = None):
 
 @bot.command()
 async def products(ctx, searchCode: str = None):
-    db = cluster["MeowShop"]
-    prods = db["Products"]
-    serv = db["Server"]
     embedVar = discord.Embed(title="Products", description="Product List.", color=0xffcccc)
     if searchCode is None:
         servInf = serv.find_one({"_id": ctx.guild.id})
@@ -383,8 +367,6 @@ async def products(ctx, searchCode: str = None):
 
 @bot.command()
 async def payments(ctx, searchCode: str = None):
-    db = cluster["MeowShop"]
-    serv = db["Server"]
     embedVar = discord.Embed(title="Payment Options", description="List of available payment options.", color=0xffcccc)
     if searchCode is None:
         servInf = serv.find_one({"_id": ctx.guild.id})
@@ -400,10 +382,6 @@ async def payments(ctx, searchCode: str = None):
 @bot.command()
 @commands.dm_only()
 async def add(ctx, serverCode: str, code: str, quant: int):
-    db = cluster["MeowShop"]
-    prods = db["Products"]
-    carts = db["Carts"]
-    serv = db["Server"]
     servInf = serv.find_one({"searchCode": serverCode})
     item = prods.find_one({"_id": code, "serverID": servInf["_id"]})
     value = "Price: `" + servInf["currency"] + " " + str(item["price"]) + "` Quantity: in cart`" + str(
@@ -445,10 +423,6 @@ async def add(ctx, serverCode: str, code: str, quant: int):
 @commands.dm_only()
 async def remove(ctx, serverCode: str, code: str, quant: int):
     embedVar = discord.Embed(title="Removed from cart", description="", color=0xffcccc)
-    db = cluster["MeowShop"]
-    prods = db["Products"]
-    carts = db["Carts"]
-    serv = db["Server"]
     servInf = serv.find_one({"searchCode": serverCode})
     item = carts.find_one({"itemCode": code, "userID": ctx.author.id, "serverID": servInf["_id"]})
     if item is None:
@@ -480,10 +454,6 @@ async def remove(ctx, serverCode: str, code: str, quant: int):
 @bot.command()
 @commands.dm_only()
 async def cart(ctx, serverCode: str):
-    db = cluster["MeowShop"]
-    carts = db["Carts"]
-    prods = db["Products"]
-    serv = db["Server"]
     servInf = serv.find_one({"searchCode": serverCode})
     embedVar = discord.Embed(title="Your Cart", description="", color=0xffcccc)
     results = carts.find({"userID": ctx.author.id, "serverID": servInf["_id"]})
@@ -507,10 +477,6 @@ async def cart(ctx, serverCode: str):
 @commands.dm_only()
 async def checkout(ctx, serverCode: str):
     embedVar = discord.Embed(title="Checkout", description="", color=0xffcccc)
-    db = cluster["MeowShop"]
-    carts = db["Carts"]
-    prods = db["Products"]
-    serv = db["Server"]
     servInf = serv.find_one({"searchCode": serverCode})
     results = carts.find({"userID": ctx.author.id, "serverID": servInf["_id"]})
     items = {}
@@ -552,12 +518,11 @@ async def checkout(ctx, serverCode: str):
     except asyncio.TimeoutError:
         await ctx.author.send("Checkout timed out")
     else:
-        orders = db["Orders"]
         orderID = uuid.uuid4().hex[:8]
         dt = datetime.utcnow()
         newOrder = {"_id": orderID, "userID": ctx.author.id, "searchCode": servInf["searchCode"], "items": items,
                     "subtotal": subtotal, "shipping": shipping, "total": total, "orderDate": dt,
-                    "messageID": message.id, "processed": False}
+                    "messageID": message.id, "processed": False, "refunded":  False, "refundRequest": False}
         orders.insert_one(newOrder)
 
         embedVar1 = discord.Embed(title="Order Code: " + newOrder["_id"], description="Order Date: " + str(dt),
@@ -590,6 +555,119 @@ async def checkout(ctx, serverCode: str):
 
         owner = bot.get_user(bot.get_guild(servInf["_id"]).owner_id)
         await owner.send(embed=embedVar1)
+
+
+@bot.command()
+@commands.dm_only()
+async def cancel(ctx, orderCode):
+    embedVar = discord.Embed(title="Order Cancellation", description="Order Code: " + orderCode, color=0xffcccc)
+    orderCheck = orders.find_one({"_id": orderCode, "userID": ctx.author.id})
+    if orderCheck is None:
+        embedVar.add_field(name="Order not found.", value="No order found with the given order code.", inline=False)
+    else:
+        if orderCheck["processed"]:
+            embedVar.add_field(name="Order has already been paid and processed.",
+                               value="To request a refund use `$rrefund orderCode`", inline=False)
+        else:
+            servInf = serv.find_one({"searchCode": orderCheck["searchCode"]})
+            items = orderCheck["items"]
+            for key in items:
+                value = "Price: `" + servInf["currency"] + " " + str(items[key][0]) + "` Quantity: `" \
+                        + str(items[key][1]) + "` Item ID: `" + items[key][2] + "`\nDescription:\n" + items[key][3]
+                embedVar.add_field(name=key, value=value, inline=False)
+            embedVar.add_field(name="Sub-Total",
+                               value="`" + servInf["currency"] + " " + str(orderCheck["subtotal"]) + "`",
+                               inline=False)
+            embedVar.add_field(name="Shipping",
+                               value="`" + servInf["currency"] + " " + str(orderCheck["shipping"]) + "`",
+                               inline=False)
+            embedVar.add_field(name="Total", value="`" + servInf["currency"] + " " + str(orderCheck["total"]) + "`",
+                               inline=False)
+            embedVar.set_footer(text="React to confirm order cancellation")
+
+            message = await ctx.send(embed=embedVar)
+            await message.add_reaction('✅')
+
+            def check(reaction, user):
+                return user == ctx.author and str(reaction.emoji) == '✅'
+
+            try:
+                reaction, user = await bot.wait_for('reaction_add', timeout=60.0, check=check)
+            except asyncio.TimeoutError:
+                await ctx.author.send("Timed out")
+            else:
+                for item in items:
+                    prods.find_one_and_update({"_id": items[item][2], "serverID": servInf["_id"]},
+                                              {"$inc": {"count": items[item][1]}})
+
+                orders.find_one_and_delete({"_id": orderCode, "userID": ctx.author.id})
+                cancelTime = str(datetime.utcnow())
+                embedVar1 = discord.Embed(title="Order Cancelled", description="Cancelled Order: " + orderCode,
+                                          color=0xffcccc)
+                embedVar1.set_footer(text=cancelTime)
+                embedVar.title = "Order Cancelled"
+                embedVar.description = "Order `" + orderCode + "` has been cancelled"
+                embedVar.set_footer(text=cancelTime)
+
+                await ctx.send(embed=embedVar1)
+                owner = bot.get_user(bot.get_guild(servInf["_id"]).owner_id)
+                await owner.send(embed=embedVar)
+
+
+@bot.command()
+@commands.dm_only()
+async def rrefund(ctx, orderCode):
+    embedVar = discord.Embed(title="Request Refund", description="Order Code: " + orderCode, color=0xffcccc)
+    orderCheck = orders.find_one({"_id": orderCode, "userID": ctx.author.id})
+    if orderCheck is None:
+        embedVar.add_field(name="Order not found.", value="No order found with the given order code.", inline=False)
+    else:
+        if not orderCheck["processed"]:
+            embedVar.add_field(name="Order has not been processed. To cancel order, use `$cancel orderCode`",
+                               value="To request a refund use `$rrefund`", inline=False)
+        else:
+            servInf = serv.find_one({"searchCode": orderCheck["searchCode"]})
+            items = orderCheck["items"]
+            for key in items:
+                value = "Price: `" + servInf["currency"] + " " + str(items[key][0]) + "` Quantity: `" \
+                        + str(items[key][1]) + "` Item ID: `" + items[key][2] + "`\nDescription:\n" + items[key][3]
+                embedVar.add_field(name=key, value=value, inline=False)
+            embedVar.add_field(name="Sub-Total",
+                               value="`" + servInf["currency"] + " " + str(orderCheck["subtotal"]) + "`",
+                               inline=False)
+            embedVar.add_field(name="Shipping",
+                               value="`" + servInf["currency"] + " " + str(orderCheck["shipping"]) + "`",
+                               inline=False)
+            embedVar.add_field(name="Total", value="`" + servInf["currency"] + " " + str(orderCheck["total"]) + "`",
+                               inline=False)
+            embedVar.set_footer(text="React to confirm refund request")
+
+            message = await ctx.send(embed=embedVar)
+            await message.add_reaction('✅')
+
+            def check(reaction, user):
+                return user == ctx.author and str(reaction.emoji) == '✅'
+
+            try:
+                reaction, user = await bot.wait_for('reaction_add', timeout=60.0, check=check)
+            except asyncio.TimeoutError:
+                await ctx.author.send("Timed out")
+            else:
+                orders.find_one_and_update({"_id": orderCode, "userID": ctx.author.id ,"serverID": servInf["_id"]},
+                                          {"$set": {"requestRefund": True}})
+                cancelTime = str(datetime.utcnow())
+                embedVar1 = discord.Embed(title="Refund Request sent", description="Order Code: " + orderCode,
+                                          color=0xffcccc)
+                embedVar1.set_footer(text=cancelTime)
+                await ctx.send(embed=embedVar1)
+
+                embedVar.title = "Refund Request"
+                embedVar.description = "Order `" + orderCode + "` requested for refund."
+                embedVar.set_footer(text=cancelTime)
+                embedVar.add_field(name="Buyer Details",
+                                   value="Username: " + user.name + "#" + user.discriminator, inline=False)
+                owner = bot.get_user(bot.get_guild(servInf["_id"]).owner_id)
+                await owner.send(embed=embedVar)
 
 
 bot.run(os.environ['TOKEN'])

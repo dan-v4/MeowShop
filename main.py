@@ -33,6 +33,25 @@ def listToString(s):
     return str1
 
 
+def printOrder(title, description, footer, orderCheck, servInf):
+    embedVar = discord.Embed(title=title, description=description + orderCheck["_id"], color=0xffcccc)
+    items = orderCheck["items"]
+    for key in items:
+        value = "Price: `" + servInf["currency"] + " " + str(items[key][0]) + "` Quantity: `" \
+                + str(items[key][1]) + "` Item ID: `" + items[key][2] + "`\nDescription:\n" + items[key][3]
+        embedVar.add_field(name=key, value=value, inline=False)
+    embedVar.add_field(name="Sub-Total",
+                       value="`" + servInf["currency"] + " " + str(orderCheck["subtotal"]) + "`",
+                       inline=False)
+    embedVar.add_field(name="Shipping",
+                       value="`" + servInf["currency"] + " " + str(orderCheck["shipping"]) + "`",
+                       inline=False)
+    embedVar.add_field(name="Total", value="`" + servInf["currency"] + " " + str(orderCheck["total"]) + "`",
+                       inline=False)
+    embedVar.set_footer(text=footer)
+    return embedVar
+
+
 @bot.event
 async def on_ready():
     print("bot ready")
@@ -110,30 +129,19 @@ async def addmgr(ctx, role):
 @commands.is_owner()
 async def confirm(ctx, orderCode: str):
     order = orders.find_one({"_id": orderCode})
-
-    embedVar = discord.Embed(title="Order confirmation", description="Order Code: " + orderCode, color=0xffcccc)
     if order is None:
+        embedVar = discord.Embed(title="Order confirmation", description="Order Code: " + orderCode, color=0xffcccc)
         embedVar.add_field(name="Order Code not found.", value="The order for the given order code does not exist",
                            inline=False)
+        await ctx.send(embed=embedVar)
     else:
-        items = order["items"]
-        embedVar.add_field(name="Order Date and Time", value=str(order["orderDate"]),
-                           inline=False)
-        servInf = serv.find_one({"searchCode": order["searchCode"]})
-        for key in items:
-            prod = products.find_one({"_id": items[key][3]})
-            value = "Price: `" + servInf["currency"] + " " + str(items[key][0]) + "` Quantity: `" \
-                    + str(items[key][1]) + "` Code: `" + items[key][2] + "`\nDescription:\n" + items[key][3]
-            embedVar.add_field(name=key, value=value, inline=False)
-        embedVar.add_field(name="Sub-Total", value="`" + servInf["currency"] + " " + str(order["subtotal"]) + "`",
-                           inline=False)
-        embedVar.add_field(name="Shipping",
-                           value="`" + servInf["currency"] + " " + str(order["shipping"]) + "`",
-                           inline=False)
 
-        embedVar.add_field(name="Total", value="`" + servInf["currency"] + " " + str(order["total"]) + "`",
-                           inline=False)
-        embedVar.set_footer(text="React to process order")
+        items = order["items"]
+        servInf = serv.find_one({"searchCode": order["searchCode"]})
+        embedVar = printOrder("Order confirmation",
+                              "Order Code: " + orderCode,
+                              "React to process order", order, servInf)
+        embedVar.add_field(name="Order Date and Time", value=str(order["orderDate"]),inline=False)
         message = await ctx.send(embed=embedVar)
         await message.add_reaction('✅')
 
@@ -145,28 +153,16 @@ async def confirm(ctx, orderCode: str):
         except asyncio.TimeoutError:
             await ctx.author.send("Checkout timed out")
         else:
+            processTime = "Time Processed: " + str(datetime.utcnow())
             embedVar1 = discord.Embed(title="Order Confirmed",
                                       description="The order `" + orderCode + "` has been confirmed. Payment Received.",
                                       color=0xffcccc)
-            embedVar1.set_footer(text="Time Processed: " + str(datetime.utcnow()))
+            embedVar1.set_footer(text=processTime)
             await ctx.send(embed=embedVar1)
 
-            embedVar2 = discord.Embed(title="Order Confirmed",
-                                      description="The order `" + orderCode + "` has been confirmed. Payment Received.",
-                                      color=0xffcccc)
-            for key in items:
-                prod = products.find_one({"_id": items[key][3]})
-                value = "Price: `" + servInf["currency"] + " " + str(items[key][0]) + "` Quantity: `" \
-                        + str(items[key][1]) + "` Item ID: `" + items[key][2] + "`\nDescription:\n" + items[key][3]
-                embedVar.add_field(name=key, value=value, inline=False)
-            embedVar2.add_field(name="Sub-Total", value="`" + servInf["currency"] + " " + str(order["subtotal"]) + "`",
-                                inline=False)
-            embedVar2.add_field(name="Shipping",
-                                value="`" + servInf["currency"] + " " + str(order["shipping"]) + "`",
-                                inline=False)
-
-            embedVar2.add_field(name="Total", value="`" + servInf["currency"] + " " + str(order["total"]) + "`",
-                                inline=False)
+            embedVar2 = printOrder("Order Confirmed",
+                                   "The order `" + orderCode + "` has been confirmed. Payment Received.",
+                                   processTime, order, servInf)
             buyer = bot.get_user(order["userID"])
             await buyer.send(embed=embedVar2)
             orders.find_one_and_update({"_id": orderCode}, {"$set": {"processed": True}})
@@ -175,9 +171,55 @@ async def confirm(ctx, orderCode: str):
 @bot.command()
 @commands.is_owner()
 async def refund(ctx, orderCode: str):
-    pass
-    
-    
+    order = orders.find_one({"_id": orderCode})
+    embedVar = discord.Embed(title="Confirm Refund",
+                             description="Order Code: " + orderCode +
+                                         "\nMake sure to refund payment before sending this refund confirmation",
+                             color=0xffcccc)
+    if order is None:
+        embedVar.add_field(name="Order Code not found.", value="The order for the given order code does not exist",
+                           inline=False)
+        await ctx.send(embed=embedVar)
+    else:
+        if not order["refundRequest"]:
+            embedVar.add_field(name="Order has not been requested for refund.",
+                               value="The buyer has not requested a refund for this order.",
+                               inline=False)
+            await ctx.send(embed=embedVar)
+        else:
+            servInf = serv.find_one({"searchCode": order["searchCode"]})
+            embedVar = printOrder("Confirm Refund", "Order Code: " + orderCode +
+                                  "\nMake sure to refund payment before sending this refund confirmation",
+                                  "React to confirm refund", order, servInf)
+            embedVar.add_field(name="Order Date and Time", value=str(order["orderDate"]), inline=False)
+            message = await ctx.send(embed=embedVar)
+            await message.add_reaction('✅')
+
+            def check(reaction, user):
+                return user == ctx.author and str(reaction.emoji) == '✅'
+
+            try:
+                reaction, user = await bot.wait_for('reaction_add', timeout=60.0, check=check)
+            except asyncio.TimeoutError:
+                await ctx.author.send("Checkout timed out")
+            else:
+                processTime = "Time Processed: " + str(datetime.utcnow())
+                embedVar1 = discord.Embed(title="Order Refunded",
+                                          description="The order `" + orderCode +
+                                                      "` has been confirmed to be refunded.",
+                                          color=0xffcccc)
+                embedVar1.set_footer(text=processTime)
+                await ctx.send(embed=embedVar1)
+
+                embedVar2 = printOrder("Order Refunded", "The order `" + orderCode +
+                                       "` has been confirmed to be refunded.", processTime, order, servInf)
+                embedVar2.add_field(name="Order Date and Time", value=str(order["orderDate"]), inline=False)
+
+                buyer = bot.get_user(order["userID"])
+                await buyer.send(embed=embedVar2)
+                orders.find_one_and_update({"_id": orderCode}, {"$set": {"refunded": True}})
+
+
 @bot.command()
 @commands.is_owner()
 async def addp(ctx, name: str, price: float, count: int, *desc):
@@ -564,27 +606,16 @@ async def cancel(ctx, orderCode):
     orderCheck = orders.find_one({"_id": orderCode, "userID": ctx.author.id})
     if orderCheck is None:
         embedVar.add_field(name="Order not found.", value="No order found with the given order code.", inline=False)
+        await ctx.send(embed=embedVar)
     else:
         if orderCheck["processed"]:
             embedVar.add_field(name="Order has already been paid and processed.",
                                value="To request a refund use `$rrefund orderCode`", inline=False)
+            await ctx.send(embed=embedVar)
         else:
             servInf = serv.find_one({"searchCode": orderCheck["searchCode"]})
-            items = orderCheck["items"]
-            for key in items:
-                value = "Price: `" + servInf["currency"] + " " + str(items[key][0]) + "` Quantity: `" \
-                        + str(items[key][1]) + "` Item ID: `" + items[key][2] + "`\nDescription:\n" + items[key][3]
-                embedVar.add_field(name=key, value=value, inline=False)
-            embedVar.add_field(name="Sub-Total",
-                               value="`" + servInf["currency"] + " " + str(orderCheck["subtotal"]) + "`",
-                               inline=False)
-            embedVar.add_field(name="Shipping",
-                               value="`" + servInf["currency"] + " " + str(orderCheck["shipping"]) + "`",
-                               inline=False)
-            embedVar.add_field(name="Total", value="`" + servInf["currency"] + " " + str(orderCheck["total"]) + "`",
-                               inline=False)
-            embedVar.set_footer(text="React to confirm order cancellation")
-
+            embedVar = printOrder("Order Cancellation", "Order Code: " + orderCode,
+                                  "React to confirm order cancellation", orderCheck, servInf)
             message = await ctx.send(embed=embedVar)
             await message.add_reaction('✅')
 
@@ -596,6 +627,7 @@ async def cancel(ctx, orderCode):
             except asyncio.TimeoutError:
                 await ctx.author.send("Timed out")
             else:
+                items = orderCheck["items"]
                 for item in items:
                     prods.find_one_and_update({"_id": items[item][2], "serverID": servInf["_id"]},
                                               {"$inc": {"count": items[item][1]}})
@@ -621,27 +653,16 @@ async def rrefund(ctx, orderCode):
     orderCheck = orders.find_one({"_id": orderCode, "userID": ctx.author.id})
     if orderCheck is None:
         embedVar.add_field(name="Order not found.", value="No order found with the given order code.", inline=False)
+        await ctx.send(embed=embedVar)
     else:
         if not orderCheck["processed"]:
             embedVar.add_field(name="Order has not been processed. To cancel order, use `$cancel orderCode`",
                                value="To request a refund use `$rrefund`", inline=False)
+            await ctx.send(embed=embedVar)
         else:
             servInf = serv.find_one({"searchCode": orderCheck["searchCode"]})
-            items = orderCheck["items"]
-            for key in items:
-                value = "Price: `" + servInf["currency"] + " " + str(items[key][0]) + "` Quantity: `" \
-                        + str(items[key][1]) + "` Item ID: `" + items[key][2] + "`\nDescription:\n" + items[key][3]
-                embedVar.add_field(name=key, value=value, inline=False)
-            embedVar.add_field(name="Sub-Total",
-                               value="`" + servInf["currency"] + " " + str(orderCheck["subtotal"]) + "`",
-                               inline=False)
-            embedVar.add_field(name="Shipping",
-                               value="`" + servInf["currency"] + " " + str(orderCheck["shipping"]) + "`",
-                               inline=False)
-            embedVar.add_field(name="Total", value="`" + servInf["currency"] + " " + str(orderCheck["total"]) + "`",
-                               inline=False)
-            embedVar.set_footer(text="React to confirm refund request")
-
+            embedVar = printOrder("Request Refund", "Order Code: " + orderCode,
+                                  "React to confirm refund request", orderCheck, servInf)
             message = await ctx.send(embed=embedVar)
             await message.add_reaction('✅')
 
@@ -654,7 +675,7 @@ async def rrefund(ctx, orderCode):
                 await ctx.author.send("Timed out")
             else:
                 orders.find_one_and_update({"_id": orderCode, "userID": ctx.author.id ,"serverID": servInf["_id"]},
-                                          {"$set": {"requestRefund": True}})
+                                          {"$set": {"refundRequest": True}})
                 cancelTime = str(datetime.utcnow())
                 embedVar1 = discord.Embed(title="Refund Request sent", description="Order Code: " + orderCode,
                                           color=0xffcccc)
@@ -664,8 +685,8 @@ async def rrefund(ctx, orderCode):
                 embedVar.title = "Refund Request"
                 embedVar.description = "Order `" + orderCode + "` requested for refund."
                 embedVar.set_footer(text=cancelTime)
-                embedVar.add_field(name="Buyer Details",
-                                   value="Username: " + user.name + "#" + user.discriminator, inline=False)
+                embedVar.add_field(name="Details",
+                                   value="User: " + user.name + "#" + user.discriminator, inline=False)
                 owner = bot.get_user(bot.get_guild(servInf["_id"]).owner_id)
                 await owner.send(embed=embedVar)
 

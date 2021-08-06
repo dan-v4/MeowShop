@@ -63,6 +63,42 @@ async def on_reaction_add(self, payload):
 
 
 @bot.command()
+async def help(ctx):
+    embedVar = discord.Embed(title="Help", description="Command List. Prefix: `$`", color=0xffcccc)
+    embedVar.add_field(name="**Owner commands**", value="Commands for server owner.", inline=False)
+    embedVar.add_field(name="`setup <currency code> <shipping cost>`",
+                       value="Setup server. Must be initialized before shop is used.", inline=False)
+    embedVar.add_field(name="`confirm <order code>`",
+                       value="Confirm order has been paid. Use after payment is received.", inline=False)
+    embedVar.add_field(name="`refund <order code>`",
+                       value="Confirm refund request. Use when payment has been refunded to the user.",
+                       inline=False)
+    embedVar.add_field(name="`addp <item name> <price> <count> <*desciption>`", value="Add a product for sale.",
+                       inline=False)
+    embedVar.add_field(name="`delp <item id>`", value="Delete a product.", inline=False)
+    embedVar.add_field(name="`setcurrency <currency code>`", value="Set shop currency.", inline=False)
+    embedVar.add_field(name="`setshipping <shipping cost>`", value="Set shop shipping price.", inline=False)
+    embedVar.add_field(name="`addpayment <payment type> <payment description>`", value="Add payment option.",
+                       inline=False)
+    embedVar.add_field(name="`delpayment <payment type>`", value="Delete payment option.\n\n", inline=False)
+
+    embedVar.add_field(name="**User commands**",
+                       value="Commands for buyer. DM only commands. `products` can be used within the server.",
+                       inline=False)
+    embedVar.add_field(name="`info <server code>`", value="Server shop info.", inline=False)
+    embedVar.add_field(name="`products <server code>`", value="Show products for sale.", inline=False)
+    embedVar.add_field(name="`payments <server code>`", value="Show payment methods.", inline=False)
+    embedVar.add_field(name="`add <server code> <item id> <quantity>`", value="Add an item to your cart.", inline=False)
+    embedVar.add_field(name="`remove <server code> <item id> <quantity>`", value="Remove items from your cart.", inline=False)
+    embedVar.add_field(name="`cart <server code>`", value="Show cart.", inline=False)
+    embedVar.add_field(name="`checkout <server code>`", value="Checkout cart.", inline=False)
+    embedVar.add_field(name="`cancel <order code>`", value="Cancel your order. Use when payment has not been sent yet.", inline=False)
+    embedVar.add_field(name="`rrefund <order code>`", value="Request a refund. Use when payment is sent.", inline=False)
+
+    await ctx.send(embed=embedVar)
+    
+    
+@bot.command()
 @commands.is_owner()
 async def setup(ctx, currCode: str, shippingCost: int):
     embedVar = discord.Embed(title="Setup", description="Shop setup", color=0xffcccc)
@@ -327,23 +363,6 @@ async def delpayment(ctx, type: str):
             embedVar.add_field(name="Pay option not found",
                                value="Possible typo or the payment option was never added.",
                                inline=False)
-
-    await ctx.send(embed=embedVar)
-
-
-@bot.command()
-async def help(ctx):
-    embedVar = discord.Embed(title="Help", description="Command List. Prefix: `$`", color=0xffcccc)
-    embedVar.add_field(name="`$products`", value="Show product list.", inline=True)
-    embedVar.add_field(name="`$addp`", value="Add product to the list.", inline=True)
-    embedVar.add_field(name="`$delp`", value="delete product from the list.", inline=True)
-    embedVar.add_field(name="`$resource`", value="Show resource list.", inline=True)
-    embedVar.add_field(name="`$addr`", value="Add resource to the list.", inline=True)
-    embedVar.add_field(name="`$delr`", value="delete resource from the list.", inline=True)
-    embedVar.add_field(name="`$add`", value="Add an item to your cart.", inline=True)
-    embedVar.add_field(name="`$remove`", value="Delete an item from your cart.", inline=True)
-    embedVar.add_field(name="`$cart`", value="Show cart.", inline=True)
-    embedVar.add_field(name="`$checkout`", value="Checkout cart.", inline=True)
 
     await ctx.send(embed=embedVar)
 

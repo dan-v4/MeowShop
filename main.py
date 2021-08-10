@@ -10,10 +10,17 @@ from datetime import datetime
 c = CurrencyCodes()
 cluster = MongoClient(os.environ['CLUSTER'])
 
+async def get_prefix(bot, message):
+    guild_id = message.guild.id
+    # you can do something here with the guild obj, open a file and return something different per guild
+    custom_prefix = prefix.find_one({"_id": guild_id})["prefix"]
+    return custom_prefix
+
+
 intents = discord.Intents.default()
 intents.guilds = True
 intents.members = True
-bot = commands.Bot(command_prefix='$', intents=intents)
+bot = commands.Bot(command_prefix=get_prefix, intents=intents)
 bot.remove_command('help')
 
 db = cluster["MeowShop"]
@@ -21,6 +28,7 @@ serv = db["Server"]
 carts = db["Carts"]
 prods = db["Products"]
 orders = db["Orders"]
+prefix = db["Prefix"]
 
 
 def listToString(s):
@@ -62,9 +70,27 @@ async def on_reaction_add(self, payload):
     pass
 
 
+@bot.event
+async def on_guild_join(guild):
+    default_prefix = {"_id": guild.id, "prefix": "$"}
+    prefix.insert_one(default_prefix)
+
+
+@bot.command()
+@commands.guild_only()
+async def setprefix(ctx, new_prefix):
+    old_prefix = prefix.find_one({"_id": ctx.guild.id})["prefix"]
+    prefix.find_one_and_update({"_id": ctx.guild.id}, {"$set": {"prefix": new_prefix}})
+    embedVar = discord.Embed(title="Prefix updated",
+                             description="Old prefix: `" + old_prefix + "`\nNew prefix: `" + new_prefix + "`",
+                             color=0xffcccc)
+    await ctx.send(embed=embedVar)
+
+
 @bot.command()
 async def help(ctx):
-    embedVar = discord.Embed(title="Help", description="Command List. Prefix: `$`", color=0xffcccc)
+    pf = prefix.find_one({"_id": ctx.guild.id})["prefix"]
+    embedVar = discord.Embed(title="Help", description="Command List. Prefix: `" + pf + "`", color=0xffcccc)
     embedVar.add_field(name="**Owner commands**", value="Commands for server owner.", inline=False)
     embedVar.add_field(name="`setup <currency code> <shipping cost>`",
                        value="Setup server. Must be initialized before shop is used.", inline=False)
@@ -96,10 +122,11 @@ async def help(ctx):
     embedVar.add_field(name="`rrefund <order code>`", value="Request a refund. Use when payment is sent.", inline=False)
 
     await ctx.send(embed=embedVar)
-    
-    
+
+
 @bot.command()
 @commands.is_owner()
+@commands.guild_only()
 async def setup(ctx, currCode: str, shippingCost: int):
     embedVar = discord.Embed(title="Setup", description="Shop setup", color=0xffcccc)
     item = serv.find_one({"_id": ctx.guild.id})
@@ -129,6 +156,7 @@ async def setup(ctx, currCode: str, shippingCost: int):
 # currently unusable
 @bot.command()
 @commands.is_owner()
+@commands.guild_only()
 async def addmgr(ctx, role):
     servInf = serv.find_one({"_id": ctx.guild.id})
     embedVar = discord.Embed(title="Add manager", description="Add shop manager", color=0xffcccc)
@@ -163,6 +191,7 @@ async def addmgr(ctx, role):
 
 @bot.command()
 @commands.is_owner()
+@commands.guild_only()
 async def confirm(ctx, orderCode: str):
     order = orders.find_one({"_id": orderCode})
     if order is None:
@@ -206,6 +235,7 @@ async def confirm(ctx, orderCode: str):
 
 @bot.command()
 @commands.is_owner()
+@commands.guild_only()
 async def refund(ctx, orderCode: str):
     order = orders.find_one({"_id": orderCode})
     embedVar = discord.Embed(title="Confirm Refund",
@@ -258,6 +288,7 @@ async def refund(ctx, orderCode: str):
 
 @bot.command()
 @commands.is_owner()
+@commands.guild_only()
 async def addp(ctx, name: str, price: float, count: int, *desc):
     servInf = serv.find_one({"_id": ctx.guild.id})
     code = uuid.uuid4().hex[:8]
@@ -280,6 +311,7 @@ async def addp(ctx, name: str, price: float, count: int, *desc):
 
 @bot.command()
 @commands.is_owner()
+@commands.guild_only()
 async def delp(ctx, code: str):
     servInf = serv.find_one({"_id": ctx.guild.id})
     deleted = prods.find_one_and_delete({"_id": code, "serverID": ctx.guild.id})
@@ -294,6 +326,7 @@ async def delp(ctx, code: str):
 
 @bot.command()
 @commands.is_owner()
+@commands.guild_only()
 async def setcurrency(ctx, currcode: str):
     item = serv.find_one({"_id": ctx.guild.id})
     currency = c.get_symbol(currcode)
@@ -312,6 +345,7 @@ async def setcurrency(ctx, currcode: str):
 
 @bot.command()
 @commands.is_owner()
+@commands.guild_only()
 async def setshipping(ctx, cost: float):
     item = serv.find_one({"_id": ctx.guild.id})
     embedVar = discord.Embed(title="Set Shipping Cost", description="", color=0xffcccc)
@@ -326,6 +360,7 @@ async def setshipping(ctx, cost: float):
 
 @bot.command()
 @commands.is_owner()
+@commands.guild_only()
 async def addpayment(ctx, paymentType: str, *instruction):
     item = serv.find_one({"_id": ctx.guild.id})
     instruction = listToString(instruction)
@@ -345,6 +380,7 @@ async def addpayment(ctx, paymentType: str, *instruction):
 
 @bot.command()
 @commands.is_owner()
+@commands.guild_only()
 async def delpayment(ctx, type: str):
     item = serv.find_one({"_id": ctx.guild.id})
     embedVar = discord.Embed(title="Set Payment", description="Add a payment option.", color=0xffcccc)

@@ -10,19 +10,6 @@ from datetime import datetime
 c = CurrencyCodes()
 cluster = MongoClient(os.environ['CLUSTER'])
 
-async def get_prefix(bot, message):
-    guild_id = message.guild.id
-    # you can do something here with the guild obj, open a file and return something different per guild
-    custom_prefix = prefix.find_one({"_id": guild_id})["prefix"]
-    return custom_prefix
-
-
-intents = discord.Intents.default()
-intents.guilds = True
-intents.members = True
-bot = commands.Bot(command_prefix=get_prefix, intents=intents)
-bot.remove_command('help')
-
 db = cluster["MeowShop"]
 serv = db["Server"]
 carts = db["Carts"]
@@ -30,6 +17,22 @@ prods = db["Products"]
 orders = db["Orders"]
 prefix = db["Prefix"]
 
+
+async def get_prefix(bot, message):
+    if isinstance(message.channel, discord.DMChannel):
+        return "$"
+    elif isinstance(message.channel, discord.TextChannel):
+        guild_id = message.guild.id
+        # you can do something here with the guild obj, open a file and return something different per guild
+        custom_prefix = prefix.find_one({"_id": guild_id})["prefix"]
+        return custom_prefix
+
+
+intents = discord.Intents.default()
+intents.guilds = True
+intents.members = True
+bot = commands.Bot(command_prefix=get_prefix, intents=intents)
+bot.remove_command('help')
 
 def listToString(s):
     str1 = ""
@@ -88,12 +91,70 @@ async def setprefix(ctx, new_prefix):
 
 
 @bot.command()
+@commands.guild_only()
+async def setname(ctx, item_id, *name):
+    name = listToString(name)
+    result = prods.find_one_and_update({"_id": item_id, "serverID": ctx.guild.id}, {"$set": {"name": name}})
+    embedVar = discord.Embed(title="Product name change.",
+                             description="Name change for item: `" + item_id + "`",
+                             color=0xffcccc)
+    if result is None:
+        embedVar.add_field(name="Item not found.", value="The item with the given item ID does not exist", inline=False)
+    else:
+        embedVar.add_field(name="Name change successful",
+                           value="Changed item name from **" + result["name"] + "** to **" + name + "**", inline=False)
+    await ctx.send(embed=embedVar)
+
+
+@bot.command()
+@commands.guild_only()
+async def setdesc(ctx, item_id, *desc):
+    desc = listToString(desc)
+    result = prods.find_one_and_update({"_id": item_id, "serverID": ctx.guild.id}, {"$set": {"desc": desc}})
+    embedVar = discord.Embed(title="Product description change.",
+                             description="Description change for item: `" + item_id + "`",
+                             color=0xffcccc)
+    if result is None:
+        embedVar.add_field(name="Item not found.", value="The item with the given item ID does not exist", inline=False)
+    else:
+        embedVar.add_field(name="Description change successful",
+                           value="Changed item description from **" + result["desc"] + "** to **" + desc + "**", inline=False)
+    await ctx.send(embed=embedVar)
+
+
+@bot.command()
+@commands.guild_only()
+async def setcount(ctx, item_id, count):
+    count = int(count)
+    embedVar = discord.Embed(title="Product Count change.",
+                             description="Count change for item: `" + item_id + "`",
+                             color=0xffcccc)
+    if count < 0:
+        embedVar.add_field(name="Invalid Count",
+                           value="Count must be greater than or equal to 0!",
+                           inline=False)
+        await ctx.send(embed=embedVar)
+    else:
+        result = prods.find_one_and_update({"_id": item_id, "serverID": ctx.guild.id}, {"$set": {"count": count}})
+
+        if result is None:
+            embedVar.add_field(name="Item not found.", value="The item with the given item ID does not exist",
+                               inline=False)
+        else:
+            embedVar.add_field(name="Count change successful",
+                               value="Changed item Count from **" + str(result["count"]) + "** to **" + str(count) + "**",
+                               inline=False)
+        await ctx.send(embed=embedVar)
+
+
+@bot.command()
 async def help(ctx):
-    pf = prefix.find_one({"_id": ctx.guild.id})["prefix"]
-    embedVar = discord.Embed(title="Help", description="Command List. Prefix: `" + pf + "`", color=0xffcccc)
-    embedVar.add_field(name="**Owner commands**", value="Commands for server owner.", inline=False)
+    embedVar = discord.Embed(title="Help", description="Command List.", color=0xffcccc)
+    embedVar.add_field(name="**Owner commands**", value="Commands for server owner. Guild only commands.", inline=False)
     embedVar.add_field(name="`setup <currency code> <shipping cost>`",
                        value="Setup server. Must be initialized before shop is used.", inline=False)
+    embedVar.add_field(name="`setprefix <new prefix>`",
+                       value="Setup server prefix. Default prefix and DM prefix is `$`.", inline=False)
     embedVar.add_field(name="`confirm <order code>`",
                        value="Confirm order has been paid. Use after payment is received.", inline=False)
     embedVar.add_field(name="`refund <order code>`",
@@ -102,6 +163,10 @@ async def help(ctx):
     embedVar.add_field(name="`addp <item name> <price> <count> <*desciption>`", value="Add a product for sale.",
                        inline=False)
     embedVar.add_field(name="`delp <item id>`", value="Delete a product.", inline=False)
+    embedVar.add_field(name="`setname <item id> <new name>`",
+                       value="Set item name. Can be used to change item name to multiple words.", inline=False)
+    embedVar.add_field(name="`setdesc <item id> <new description>`", value="Set item description.", inline=False)
+    embedVar.add_field(name="`setcount <item id> <new count>`", value="Set item count.", inline=False)
     embedVar.add_field(name="`setcurrency <currency code>`", value="Set shop currency.", inline=False)
     embedVar.add_field(name="`setshipping <shipping cost>`", value="Set shop shipping price.", inline=False)
     embedVar.add_field(name="`addpayment <payment type> <payment description>`", value="Add payment option.",
@@ -554,20 +619,25 @@ async def cart(ctx, serverCode: str):
     servInf = serv.find_one({"searchCode": serverCode})
     embedVar = discord.Embed(title="Your Cart", description="", color=0xffcccc)
     results = carts.find({"userID": ctx.author.id, "serverID": servInf["_id"]})
-    for item in results:
-        product = prods.find_one({"_id": item["itemCode"], "serverID": servInf["_id"]})
-        name = product["name"]
-        if product["count"] >= item["quantity"]:
-            value = "Price: `" + servInf["currency"] + " " + str(product["price"]) + "` Quantity: `" + str(
-                item["quantity"]) + "` Item ID: `" + product[
-                        "_id"] + "`\n\nDescription:\n" + product["desc"]
-            embedVar.add_field(name=name, value=value, inline=False)
-        else:
-            value = "Out of stock or ordering too many.\n Available Items: `" + str(item["quantity"]) \
-                    + "` Order quantity: `" + str(product["count"])
-            embedVar.add_field(name=name, value=value, inline=False)
+    if results.count() == 0:
+        embedVar.add_field(name="Empty cart", value="Your cart is empty", inline=False)
+        await ctx.send(embed=embedVar)
+    else:
+        for item in results:
+            product = prods.find_one({"_id": item["itemCode"], "serverID": servInf["_id"]})
+            name = product["name"]
+            if product["count"] >= item["quantity"]:
+                value = "Price: `" + servInf["currency"] + " " + str(product["price"]) + "` Quantity: `" + str(
+                    item["quantity"]) + "` Item ID: `" + product[
+                            "_id"] + "`\n\nDescription:\n" + product["desc"]
+                embedVar.add_field(name=name, value=value, inline=False)
+            else:
+                value = "Out of stock or ordering too many.\n Available Items: `" + str(item["quantity"]) \
+                        + "` Order quantity: `" + str(product["count"])
+                embedVar.add_field(name=name, value=value, inline=False)
+            await ctx.send(embed=embedVar)
 
-    await ctx.send(embed=embedVar)
+
 
 
 @bot.command()
@@ -580,78 +650,84 @@ async def checkout(ctx, serverCode: str):
     subtotal = 0
     total = 0
     shipping = 0
-    for item in results:
-        product = prods.find_one({"_id": item["itemCode"], "serverID": servInf["_id"]})
-        name = product["name"]
-        if product["count"] >= item["quantity"]:
-            value = "Price: `" + servInf["currency"] + " " + str(product["price"]) + "` Quantity: `" + str(
-                item["quantity"]) + "` Item ID: `" + product[
-                        "_id"] + "`\nDescription:\n" + product["desc"]
-            subtotal = subtotal + product["price"] * item["quantity"]
-            items[name] = (product["price"], item["quantity"], product["_id"], product["desc"])
-            embedVar.add_field(name=name, value=value, inline=False)
+    if results.count() == 0:
+        embedVar.add_field(name="Empty cart", value="Add products to your cart to checkout.", inline=False)
+        await ctx.send(embed=embedVar)
+    else:
+        for item in results:
+            product = prods.find_one({"_id": item["itemCode"], "serverID": servInf["_id"]})
+            name = product["name"]
+            if product["count"] >= item["quantity"]:
+                value = "Price: `" + servInf["currency"] + " " + str(product["price"]) + "` Quantity: `" + str(
+                    item["quantity"]) + "` Item ID: `" + product[
+                            "_id"] + "`\nDescription:\n" + product["desc"]
+                subtotal = subtotal + product["price"] * item["quantity"]
+                items[name] = (product["price"], item["quantity"], product["_id"], product["desc"])
+                embedVar.add_field(name=name, value=value, inline=False)
+            else:
+                value = "Order cancelled. Out of stock or ordering too many.\n Available Items: `" \
+                        + str(product["count"]) + "` Order quantity: `" + str(item["quantity"])
+                embedVar.add_field(name=name, value=value, inline=False)
+        embedVar.add_field(name="Sub-Total", value="`" + servInf["currency"] + " " + str(subtotal) + "`", inline=False)
+        if subtotal != 0:
+            embedVar.add_field(name="Shipping",
+                               value="`" + servInf["currency"] + " " + str(servInf["shippingCost"]) + "`",
+                               inline=False)
+            shipping = servInf["shippingCost"]
+            total = total + subtotal + shipping
         else:
-            value = "Order cancelled. Out of stock or ordering too many.\n Available Items: `" \
-                    + str(product["count"]) + "` Order quantity: `" + str(item["quantity"])
-            embedVar.add_field(name=name, value=value, inline=False)
-    embedVar.add_field(name="Sub-Total", value="`" + servInf["currency"] + " " + str(subtotal) + "`", inline=False)
-    if subtotal != 0:
-        embedVar.add_field(name="Shipping", value="`" + servInf["currency"] + " " + str(servInf["shippingCost"]) + "`",
-                           inline=False)
-        shipping = servInf["shippingCost"]
-        total = total + subtotal + shipping
-    else:
-        total = subtotal
-    embedVar.add_field(name="Total", value="`" + servInf["currency"] + " " + str(total) + "`", inline=False)
-    embedVar.set_footer(text="React to confirm order")
-    message = await ctx.send(embed=embedVar)
-    await message.add_reaction('✅')
+            total = subtotal
+        embedVar.add_field(name="Total", value="`" + servInf["currency"] + " " + str(total) + "`", inline=False)
+        embedVar.set_footer(text="React to confirm order")
+        message = await ctx.send(embed=embedVar)
+        await message.add_reaction('✅')
 
-    def check(reaction, user):
-        return user == ctx.author and str(reaction.emoji) == '✅'
+        def check(reaction, user):
+            return user == ctx.author and str(reaction.emoji) == '✅'
 
-    try:
-        reaction, user = await bot.wait_for('reaction_add', timeout=60.0, check=check)
-    except asyncio.TimeoutError:
-        await ctx.author.send("Checkout timed out")
-    else:
-        orderID = uuid.uuid4().hex[:8]
-        dt = datetime.utcnow()
-        newOrder = {"_id": orderID, "userID": ctx.author.id, "searchCode": servInf["searchCode"], "items": items,
-                    "subtotal": subtotal, "shipping": shipping, "total": total, "orderDate": dt,
-                    "messageID": message.id, "processed": False, "refunded":  False, "refundRequest": False}
-        orders.insert_one(newOrder)
+        try:
+            reaction, user = await bot.wait_for('reaction_add', timeout=60.0, check=check)
+        except asyncio.TimeoutError:
+            await ctx.author.send("Checkout timed out")
+        else:
+            orderID = uuid.uuid4().hex[:8]
+            dt = datetime.utcnow()
+            newOrder = {"_id": orderID, "userID": ctx.author.id, "searchCode": servInf["searchCode"], "items": items,
+                        "subtotal": subtotal, "shipping": shipping, "total": total, "orderDate": dt,
+                        "messageID": message.id, "processed": False, "refunded": False, "refundRequest": False}
+            orders.insert_one(newOrder)
 
-        embedVar1 = discord.Embed(title="Order Code: " + newOrder["_id"], description="Order Date: " + str(dt),
-                                  color=0xffcccc)
-        for key in items:
-            value = "Price: `" + servInf["currency"] + " " + str(items[key][0]) + "` Quantity: `" \
-                    + str(items[key][1]) + "` Item ID: `" + items[key][2] + "`\nDescription:\n" + items[key][3]
-            embedVar1.add_field(name=key, value=value, inline=False)
-        embedVar1.add_field(name="Sub-Total",
-                            value="`" + servInf["currency"] + " " + str(newOrder["subtotal"]) + "`",
-                            inline=False)
-        embedVar1.add_field(name="Shipping",
-                            value="`" + servInf["currency"] + " " + str(newOrder["shipping"]) + "`",
-                            inline=False)
-        embedVar1.add_field(name="Total", value="`" + servInf["currency"] + " " + str(newOrder["total"]) + "`",
-                            inline=False)
-        await ctx.send(embed=embedVar1)
+            embedVar1 = discord.Embed(title="Order Code: " + newOrder["_id"], description="Order Date: " + str(dt),
+                                      color=0xffcccc)
+            for key in items:
+                value = "Price: `" + servInf["currency"] + " " + str(items[key][0]) + "` Quantity: `" \
+                        + str(items[key][1]) + "` Item ID: `" + items[key][2] + "`\nDescription:\n" + items[key][3]
+                embedVar1.add_field(name=key, value=value, inline=False)
+            embedVar1.add_field(name="Sub-Total",
+                                value="`" + servInf["currency"] + " " + str(newOrder["subtotal"]) + "`",
+                                inline=False)
+            embedVar1.add_field(name="Shipping",
+                                value="`" + servInf["currency"] + " " + str(newOrder["shipping"]) + "`",
+                                inline=False)
+            embedVar1.add_field(name="Total", value="`" + servInf["currency"] + " " + str(newOrder["total"]) + "`",
+                                inline=False)
+            await ctx.send(embed=embedVar1)
 
-        embedVar2 = discord.Embed(title="Payment Options", description="List of available payment options.",
-                                  color=0xffcccc)
-        for key in servInf["payments"]:
-            embedVar2.add_field(name=key, value=servInf["payments"][key], inline=False)
+            embedVar2 = discord.Embed(title="Payment Options", description="List of available payment options.",
+                                      color=0xffcccc)
+            for key in servInf["payments"]:
+                embedVar2.add_field(name=key, value=servInf["payments"][key], inline=False)
 
-        for item in items:
-            prods.find_one_and_update({"_id": items[item][2], "serverID": servInf["_id"]},
-                                      {"$inc": {"count": -items[item][1]}})
-            carts.find_one_and_delete({"userID": ctx.author.id, "serverID": servInf["_id"], "itemCode": items[item][2]})
+            for item in items:
+                prods.find_one_and_update({"_id": items[item][2], "serverID": servInf["_id"]},
+                                          {"$inc": {"count": -items[item][1]}})
+                carts.find_one_and_delete(
+                    {"userID": ctx.author.id, "serverID": servInf["_id"], "itemCode": items[item][2]})
 
-        await ctx.send(embed=embedVar2)
+            await ctx.send(embed=embedVar2)
 
-        owner = bot.get_user(bot.get_guild(servInf["_id"]).owner_id)
-        await owner.send(embed=embedVar1)
+            owner = bot.get_user(bot.get_guild(servInf["_id"]).owner_id)
+            await owner.send(embed=embedVar1)
 
 
 @bot.command()

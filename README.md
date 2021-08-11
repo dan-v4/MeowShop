@@ -25,3 +25,35 @@ Currently, the item name can only be one word. To set a longer name use `$setnam
 
 
 ## Commands
+Default Prefix: `$`  
+  
+**Owner commands:**  
+Commands for server owner. Guild only commands. It is recommended to setup a private channel with permissions for MeowShop and server owner for the use of these commands.  
+  
+* `$setup <currency code> <shipping cost>` - Setup server shop. Must be used before shop is initialized.  
+* `$setprefix <new prefix>` - Setup server prefix. Default prefix and DM prefix is `$`.  
+* `$confirm <order code>` - Confirm order has been paid. Use after payment is received.  
+* `$refund <order code>` - Confirm refund request. Use when payment has been refunded to the user.  
+* `$addp <item name> <price> <count> <*desciption>` - Add a product for sale.  
+* `$delp <item id>` - Delete a product.  
+* `$setname <item id> <new name>` - Set item name. Can be used to change item name to multiple words.  
+* `$setdesc <item id> <new description>` - Set item description.  
+* `$setcount <item id> <new count>` - Set item count.  
+* `$setcurrency <currency code>` - Set shop currency.  
+* `$setshipping <shipping cost>` - Set shop shipping price.  
+* `$addpayment <payment type> <payment instruction>` - Add payment option.  
+* `$delpayment <payment type>` - Delete payment option.  
+  
+**User commands:** 
+Commands for buyer. DM only commands. `products` and `info` can be used within the server.  
+  
+* `$info <server code>` - Server shop info.  
+* `$products <server code>` - Show products for sale. Can be used without <server code> within a server.
+* `$payments <server code>` - Show payment methods.  
+* `$add <server code> <item id> <quantity>` - Add an item to your cart.  
+* `$remove <server code> <item id> <quantity>` - Remove items from your cart.  
+* `$cart <server code>` - Show cart.  
+* `$checkout <server code>` - Checkout cart.  
+* `$cancel <order code>` - Cancel your order. Use when payment has not been sent yet.  
+* `$rrefund <order code>` - Request a refund. Use when payment is sent.  
+

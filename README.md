@@ -39,6 +39,7 @@ Commands for server owner. Guild only commands. It is recommended to setup a pri
 * `$setname <item id> <new name>` - Set item name. Can be used to change item name to multiple words.  
 * `$setdesc <item id> <new description>` - Set item description.  
 * `$setcount <item id> <new count>` - Set item count.  
+* `$setprice <item id> <new price>` - Set item price.  
 * `$setcurrency <currency code>` - Set shop currency.  
 * `$setshipping <shipping cost>` - Set shop shipping price.  
 * `$addpayment <payment type> <payment instruction>` - Add payment option.  

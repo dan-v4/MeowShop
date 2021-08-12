@@ -166,7 +166,7 @@ async def setprice(ctx, item_id, price):
             embedVar.add_field(name="Item not found.", value="The item with the given item ID does not exist",
                                inline=False)
         else:
-            embedVar.add_field(name="Count change successful",
+            embedVar.add_field(name="Price change successful",
                                value="Changed item price from **" + str(result["price"]) + "** to **" + str(price) + "**",
                                inline=False)
         await ctx.send(embed=embedVar)

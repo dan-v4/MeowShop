@@ -148,6 +148,31 @@ async def setcount(ctx, item_id, count):
 
 
 @bot.command()
+@commands.guild_only()
+async def setprice(ctx, item_id, price):
+    price = int(price)
+    embedVar = discord.Embed(title="Product Count change.",
+                             description="Count change for item: `" + item_id + "`",
+                             color=0xffcccc)
+    if price < 0:
+        embedVar.add_field(name="Invalid Price",
+                           value="P must be greater than or equal to 0!",
+                           inline=False)
+        await ctx.send(embed=embedVar)
+    else:
+        result = prods.find_one_and_update({"_id": item_id, "serverID": ctx.guild.id}, {"$set": {"price": price}})
+
+        if result is None:
+            embedVar.add_field(name="Item not found.", value="The item with the given item ID does not exist",
+                               inline=False)
+        else:
+            embedVar.add_field(name="Count change successful",
+                               value="Changed item price from **" + str(result["price"]) + "** to **" + str(price) + "**",
+                               inline=False)
+        await ctx.send(embed=embedVar)
+
+
+@bot.command()
 async def help(ctx):
     embedVar = discord.Embed(title="Help", description="Command List.", color=0xffcccc)
     embedVar.add_field(name="**Owner commands**", value="Commands for server owner. Guild only commands.", inline=False)
@@ -167,6 +192,7 @@ async def help(ctx):
                        value="Set item name. Can be used to change item name to multiple words.", inline=False)
     embedVar.add_field(name="`setdesc <item id> <new description>`", value="Set item description.", inline=False)
     embedVar.add_field(name="`setcount <item id> <new count>`", value="Set item count.", inline=False)
+    embedVar.add_field(name="`setprice <item id> <new price>`", value="Set item price.", inline=False)
     embedVar.add_field(name="`setcurrency <currency code>`", value="Set shop currency.", inline=False)
     embedVar.add_field(name="`setshipping <shipping cost>`", value="Set shop shipping price.", inline=False)
     embedVar.add_field(name="`addpayment <payment type> <payment instruction>`", value="Add payment option.",
@@ -820,6 +846,5 @@ async def rrefund(ctx, orderCode):
                                    value="User: " + user.name + "#" + user.discriminator, inline=False)
                 owner = bot.get_user(bot.get_guild(servInf["_id"]).owner_id)
                 await owner.send(embed=embedVar)
-
 
 bot.run(os.environ['TOKEN'])

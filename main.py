@@ -45,7 +45,7 @@ def listToString(s):
 
 
 def printOrder(title, description, footer, orderCheck, servInf):
-    embedVar = discord.Embed(title=title, description=description + orderCheck["_id"], color=0xffcccc)
+    embedVar = discord.Embed(title=title, description=description, color=0xffcccc)
     items = orderCheck["items"]
     for key in items:
         value = "Price: `" + servInf["currency"] + " " + str(items[key][0]) + "` Quantity: `" \
@@ -152,7 +152,7 @@ async def help(ctx):
     embedVar = discord.Embed(title="Help", description="Command List.", color=0xffcccc)
     embedVar.add_field(name="**Owner commands**", value="Commands for server owner. Guild only commands.", inline=False)
     embedVar.add_field(name="`setup <currency code> <shipping cost>`",
-                       value="Setup server. Must be initialized before shop is used.", inline=False)
+                       value="Setup server shop. Must be used before shop is initialized.", inline=False)
     embedVar.add_field(name="`setprefix <new prefix>`",
                        value="Setup server prefix. Default prefix and DM prefix is `$`.", inline=False)
     embedVar.add_field(name="`confirm <order code>`",
@@ -169,7 +169,7 @@ async def help(ctx):
     embedVar.add_field(name="`setcount <item id> <new count>`", value="Set item count.", inline=False)
     embedVar.add_field(name="`setcurrency <currency code>`", value="Set shop currency.", inline=False)
     embedVar.add_field(name="`setshipping <shipping cost>`", value="Set shop shipping price.", inline=False)
-    embedVar.add_field(name="`addpayment <payment type> <payment description>`", value="Add payment option.",
+    embedVar.add_field(name="`addpayment <payment type> <payment instruction>`", value="Add payment option.",
                        inline=False)
     embedVar.add_field(name="`delpayment <payment type>`", value="Delete payment option.\n\n", inline=False)
 
@@ -805,7 +805,7 @@ async def rrefund(ctx, orderCode):
             except asyncio.TimeoutError:
                 await ctx.author.send("Timed out")
             else:
-                orders.find_one_and_update({"_id": orderCode, "userID": ctx.author.id ,"serverID": servInf["_id"]},
+                orders.find_one_and_update({"_id": orderCode, "userID": ctx.author.id ,"searchCode": servInf["searchCode"]},
                                           {"$set": {"refundRequest": True}})
                 cancelTime = str(datetime.utcnow())
                 embedVar1 = discord.Embed(title="Refund Request sent", description="Order Code: " + orderCode,

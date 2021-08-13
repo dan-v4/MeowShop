@@ -197,7 +197,8 @@ async def help(ctx):
     embedVar.add_field(name="`setshipping <shipping cost>`", value="Set shop shipping price.", inline=False)
     embedVar.add_field(name="`addpayment <payment type> <payment instruction>`", value="Add payment option.",
                        inline=False)
-    embedVar.add_field(name="`delpayment <payment type>`", value="Delete payment option.\n\n", inline=False)
+    embedVar.add_field(name="`delpayment <payment type>`", value="Delete payment option.", inline=False)
+    embedVar.add_field(name="`pending`", value="List unconfirmed orders.\n\n", inline=False)
 
     embedVar.add_field(name="**User commands**",
                        value="Commands for buyer. DM only commands. `products` can be used within the server.",
@@ -377,6 +378,21 @@ async def refund(ctx, orderCode: str):
                 buyer = bot.get_user(order["userID"])
                 await buyer.send(embed=embedVar2)
                 orders.find_one_and_update({"_id": orderCode}, {"$set": {"refunded": True}})
+
+
+@bot.command()
+@commands.is_owner()
+@commands.guild_only()
+async def pending(ctx):
+    servInf = serv.find_one({"_id": ctx.guild.id})
+    order = orders.find({"searchCode": servInf["searchCode"], "processed": False})
+    embedVar = discord.Embed(title="Pending orders", description="Unprocessed/unconfirmed orders.", color=0xffcccc)
+    for item in order:
+        user = bot.get_user(item["userID"])
+        embedVar.add_field(name="Order Code: " + item["_id"],
+                           value="Total: `" + item["total"] + "`\nUser: `" + user.name +"#" + user.discriminator
+                                 + "`\nOrder Date: `" + str(item["orderDate"]) + "`",
+                           inline=False)
 
 
 @bot.command()

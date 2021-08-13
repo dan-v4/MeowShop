@@ -44,6 +44,7 @@ Commands for server owner. Guild only commands. It is recommended to setup a pri
 * `$setshipping <shipping cost>` - Set shop shipping price.  
 * `$addpayment <payment type> <payment instruction>` - Add payment option.  
 * `$delpayment <payment type>` - Delete payment option.  
+* `$pending` - List unconfirmed orders.  
   
 **User commands:** 
 Commands for buyer. DM only commands. `products` and `info` can be used within the server.  

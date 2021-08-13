@@ -284,7 +284,8 @@ async def addmgr(ctx, role):
 @commands.is_owner()
 @commands.guild_only()
 async def confirm(ctx, orderCode: str):
-    order = orders.find_one({"_id": orderCode})
+    servInf = serv.find_one({"_id": ctx.guild.id})
+    order = orders.find_one({"_id": orderCode, "searchCode": servInf["searchCode"]})
     if order is None:
         embedVar = discord.Embed(title="Order confirmation", description="Order Code: " + orderCode, color=0xffcccc)
         embedVar.add_field(name="Order Code not found.", value="The order for the given order code does not exist",
@@ -293,7 +294,7 @@ async def confirm(ctx, orderCode: str):
     else:
 
         items = order["items"]
-        servInf = serv.find_one({"searchCode": order["searchCode"]})
+
         embedVar = printOrder("Order confirmation",
                               "Order Code: " + orderCode,
                               "React to process order", order, servInf)
@@ -328,7 +329,8 @@ async def confirm(ctx, orderCode: str):
 @commands.is_owner()
 @commands.guild_only()
 async def refund(ctx, orderCode: str):
-    order = orders.find_one({"_id": orderCode})
+    servInf = serv.find_one({"_id": ctx.guild.id})
+    order = orders.find_one({"_id": orderCode, "searchCode": servInf["searchCode"]})
     embedVar = discord.Embed(title="Confirm Refund",
                              description="Order Code: " + orderCode +
                                          "\nMake sure to refund payment before sending this refund confirmation",
@@ -344,7 +346,7 @@ async def refund(ctx, orderCode: str):
                                inline=False)
             await ctx.send(embed=embedVar)
         else:
-            servInf = serv.find_one({"searchCode": order["searchCode"]})
+
             embedVar = printOrder("Confirm Refund", "Order Code: " + orderCode +
                                   "\nMake sure to refund payment before sending this refund confirmation",
                                   "React to confirm refund", order, servInf)

@@ -346,8 +346,12 @@ async def refund(ctx, orderCode: str):
                                value="The buyer has not requested a refund for this order.",
                                inline=False)
             await ctx.send(embed=embedVar)
+        elif order["refunded"]:
+            embedVar.add_field(name="Order has already been refunded",
+                               value="This order is already refunded.",
+                               inline=False)
+            await ctx.send(embed=embedVar)
         else:
-
             embedVar = printOrder("Confirm Refund", "Order Code: " + orderCode +
                                   "\nMake sure to refund payment before sending this refund confirmation",
                                   "React to confirm refund", order, servInf)
@@ -390,9 +394,34 @@ async def pending(ctx):
     for item in order:
         user = bot.get_user(item["userID"])
         embedVar.add_field(name="Order Code: " + item["_id"],
-                           value="Total: `" + item["total"] + "`\nUser: `" + user.name +"#" + user.discriminator
+                           value="Total: `" + str(item["total"]) + "`\nUser: `" + user.name +"#" + user.discriminator
                                  + "`\nOrder Date: `" + str(item["orderDate"]) + "`",
                            inline=False)
+        await ctx.send(embed=embedVar)
+
+
+@bot.command()
+@commands.is_owner()
+@commands.guild_only()
+async def check(ctx, orderCode):
+    servInf = serv.find_one({"_id": ctx.guild.id})
+    order = orders.find_one({"_id": orderCode, "searchCode": servInf["searchCode"]})
+    if order is None:
+        embedVar = discord.Embed(title="Order Details", description="Order Code: " + orderCode, color=0xffcccc)
+        embedVar.add_field(name="Order does not exist.", value="Order with given order code does not exist.",
+                           inline=False)
+    else:
+        user = bot.get_user(order["userID"])
+        embedVar = printOrder("Order Details", "Order Code: " + orderCode, "User: " + user.name + "#" +
+                              user.discriminator + "\nOrder Date: " + str(order["orderDate"]) + "", order, servInf)
+        embedVar.add_field(name="Processed/Confirmed:", value=order["processed"],
+                           inline=False)
+        embedVar.add_field(name="Refund Request:", value=order["refundRequest"],
+                           inline=False)
+        embedVar.add_field(name="Refunded:", value=order["refunded"],
+                           inline=False)
+
+        await ctx.send(embed=embedVar)
 
 
 @bot.command()
@@ -682,8 +711,6 @@ async def cart(ctx, serverCode: str):
             await ctx.send(embed=embedVar)
 
 
-
-
 @bot.command()
 @commands.dm_only()
 async def checkout(ctx, serverCode: str):
@@ -865,4 +892,5 @@ async def rrefund(ctx, orderCode):
                 owner = bot.get_user(bot.get_guild(servInf["_id"]).owner_id)
                 await owner.send(embed=embedVar)
 
+                
 bot.run(os.environ['TOKEN'])

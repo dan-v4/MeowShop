@@ -45,6 +45,7 @@ Commands for server owner. Guild only commands. It is recommended to setup a pri
 * `$addpayment <payment type> <payment instruction>` - Add payment option.  
 * `$delpayment <payment type>` - Delete payment option.  
 * `$pending` - List unconfirmed orders.  
+* `$check <order code>` - Check order details.  
   
 **User commands:** 
 Commands for buyer. DM only commands. `products` and `info` can be used within the server.  
